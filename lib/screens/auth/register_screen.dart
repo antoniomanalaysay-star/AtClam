@@ -1,208 +1,268 @@
-
 import 'package:flutter/material.dart';
 
-class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+import 'login_screen.dart';
+
+/// Sends the new account to the backend.
+/// Return `null` on success, or an error message to show the user.
+typedef RegisterSubmit = Future<String?> Function(
+  String username,
+  String email,
+  String password,
+  UserRole requestedRole,
+);
+
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({
+    super.key,
+    this.onSubmit,
+    this.onRegistered,
+    this.onGoToLogin,
+  });
+
+  /// Real sign-up call. While this is null the screen is a DESIGN PREVIEW only.
+  final RegisterSubmit? onSubmit;
+
+  /// Called after [onSubmit] succeeds. Defaults to opening [LoginScreen].
+  final VoidCallback? onRegistered;
+
+  /// Defaults to opening [LoginScreen].
+  final VoidCallback? onGoToLogin;
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
+class _RegisterScreenState extends State<RegisterScreen> {
+  static const int _minPasswordLength = 8;
 
-  String _role = 'Student';
-  bool _hidePassword = true;
+  final _formKey = GlobalKey<FormState>();
+  final _username = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+
+  UserRole _role = UserRole.student;
+  bool _loading = false;
+  String? _error;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmController.dispose();
+    _username.dispose();
+    _email.dispose();
+    _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
-  void _signup() {
-    final name = _nameController.text.trim();
-    final email = _emailController.text.trim();
+  String? _validateUsername(String? value) {
+    final v = (value ?? '').trim();
+    if (v.isEmpty) return 'Please enter a username.';
+    if (v.length < 3) return 'Username must be at least 3 characters.';
+    return null;
+  }
 
-    if (name.isEmpty || email.isEmpty ||
-        _passwordController.text.isEmpty ||
-        _confirmController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please complete all fields.')),
-      );
+  String? _validateEmail(String? value) {
+    final v = (value ?? '').trim();
+    if (v.isEmpty) return 'Please enter your email.';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
+      return 'Please enter a valid email address.';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) return 'Please enter a password.';
+    if (value.length < _minPasswordLength) {
+      return 'Password must be at least $_minPasswordLength characters.';
+    }
+    return null;
+  }
+
+  String? _validateConfirm(String? value) {
+    if (value == null || value.isEmpty) return 'Please confirm your password.';
+    if (value != _password.text) return 'Passwords do not match.';
+    return null;
+  }
+
+  Future<void> _submit() async {
+    setState(() => _error = null);
+    if (!_formKey.currentState!.validate()) return;
+
+    final submit = widget.onSubmit;
+    if (submit == null) {
+      setState(() => _error =
+          'Design preview only: sign-up is not connected to the backend yet. '
+          'No account was created.');
       return;
     }
 
-    if (!email.contains('@') || !email.contains('.')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address.')),
+    setState(() => _loading = true);
+    String? error;
+    try {
+      error = await submit(
+        _username.text.trim(),
+        _email.text.trim(),
+        _password.text,
+        _role,
       );
-      return;
+    } catch (_) {
+      error = 'Could not reach the server. Please try again.';
     }
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error = error;
+    });
+    if (error != null) return;
 
-    if (_passwordController.text.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password must be at least 8 characters.'),
+    final custom = widget.onRegistered;
+    if (custom != null) {
+      custom();
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => const LoginScreen(
+            successMessage: 'Account created! Please log in.',
+          ),
         ),
       );
+    }
+  }
+
+  void _goToLogin() {
+    final custom = widget.onGoToLogin;
+    if (custom != null) {
+      custom();
       return;
     }
-
-    if (_passwordController.text != _confirmController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match.')),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Form validated. Account creation requires a backend connection.',
-        ),
-      ),
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(
-                    Icons.person_add_alt_1,
-                    color: Color(0xFF167D56),
-                    size: 54,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Join AT CLAM',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.bold,
+    return AuthLayout(
+      headlinePrefix: 'Join your ',
+      headlineAccent: 'classroom',
+      description:
+          'Create an account to start tracking and viewing attendance.',
+      tileIcons: const [
+        Icons.groups_outlined,
+        Icons.how_to_reg_outlined,
+        Icons.chat_bubble_outline,
+        Icons.school_outlined,
+        Icons.face_retouching_natural_outlined,
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const GlowingLogo(size: 52),
+                const SizedBox(width: 14),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AuthWordmark(fontSize: 18, letterSpacing: 0.6),
+                    SizedBox(height: 2),
+                    Text(
+                      'Classroom Attendance',
+                      style: TextStyle(fontSize: 11, color: AuthColors.muted),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Create your classroom account.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                  const SizedBox(height: 28),
-                  const Text('Full name'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter your full name',
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Email address'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      hintText: 'you@example.com',
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Account role'),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _role,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.badge_outlined),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Student',
-                        child: Text('Student'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Instructor',
-                        child: Text('Instructor'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Admin',
-                        child: Text('Administrator'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _role = value);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Password'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _hidePassword,
-                    decoration: InputDecoration(
-                      hintText: 'At least 8 characters',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setState(() => _hidePassword = !_hidePassword);
-                        },
-                        icon: Icon(
-                          _hidePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Confirm password'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _confirmController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Re-enter your password',
-                      prefixIcon: Icon(Icons.lock_reset_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _signup,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF167D56),
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Create Account'),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Already have an account? Sign in'),
-                  ),
-                ],
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            const Text(
+              'Create account',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFF3FAF3),
               ),
             ),
-          ),
+            const SizedBox(height: 6),
+            const Text(
+              'Sign up to access your AT CLAM dashboard.',
+              style: TextStyle(fontSize: 13, color: AuthColors.muted),
+            ),
+            const SizedBox(height: 20),
+            if (_error != null)
+              AuthBanner(message: _error!, kind: AuthBannerKind.error),
+            RoleSelector(
+              selected: _role,
+              roles: const [UserRole.student, UserRole.instructor],
+              onChanged: (role) => setState(() => _role = role),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Admin accounts cannot be created here.',
+              style: TextStyle(fontSize: 11, color: AuthColors.muted),
+            ),
+            AuthTextField(
+              controller: _username,
+              label: 'Username',
+              hint: 'Username',
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.newUsername],
+              validator: _validateUsername,
+            ),
+            AuthTextField(
+              controller: _email,
+              label: 'Email',
+              hint: 'Email',
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              validator: _validateEmail,
+            ),
+            AuthTextField(
+              controller: _password,
+              label: 'Password',
+              hint: 'Password',
+              isPassword: true,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: _validatePassword,
+            ),
+            AuthTextField(
+              controller: _confirm,
+              label: 'Confirm Password',
+              hint: 'Confirm Password',
+              isPassword: true,
+              textInputAction: TextInputAction.done,
+              validator: _validateConfirm,
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 20),
+            AuthButton(
+                label: 'Register', loading: _loading, onPressed: _submit),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Already have an account? ',
+                  style: TextStyle(fontSize: 13, color: AuthColors.muted),
+                ),
+                InkWell(
+                  onTap: _goToLogin,
+                  child: const Text(
+                    'Login',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AuthColors.lime,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
