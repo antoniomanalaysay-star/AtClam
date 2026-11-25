@@ -220,8 +220,9 @@ def delete_user(user_id: int, admin: dict = Depends(require_role("admin"))):
             pid = target["student_id"]
             con.execute("DELETE FROM attendance WHERE student_id=?", (pid,))
             con.execute("DELETE FROM students WHERE id=?", (pid,))
-            from config import FACES
-            (FACES / f"{pid}.jpg").unlink(missing_ok=True)
+            from db import delete_blob
+            delete_blob("face", pid)
+            delete_blob("avatar", str(user_id))
         con.execute("UPDATE classes SET instructor_id=NULL WHERE instructor_id=?", (user_id,))
         con.execute("DELETE FROM users WHERE id=?", (user_id,))
     from scanner import scanner

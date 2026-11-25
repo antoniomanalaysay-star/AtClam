@@ -41,7 +41,11 @@ def process_photos(blobs: list):
 
 
 def save_face(pid: str, feats, crop) -> str:
-    cv2.imwrite(str(C.FACES / f"{pid}.jpg"), crop)
+    from db import save_blob
+
+    ok, buf = cv2.imencode(".jpg", crop)
+    if ok:
+        save_blob("face", pid, buf.tobytes())
     return json.dumps([f.tolist() for f in feats])
 
 

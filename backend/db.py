@@ -10,6 +10,7 @@ import os
 import re
 import threading
 from contextlib import closing
+from typing import Optional
 
 import psycopg
 from psycopg.rows import dict_row
@@ -31,6 +32,7 @@ CONNINFO = {
     "dbname": DB_NAME,
     "user": DB_USER,
     "password": DB_PASSWORD,
+    "sslmode": os.getenv("DB_SSLMODE", "prefer"),
 }
 
 _write_lock = threading.RLock()
@@ -118,6 +120,20 @@ CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_sessions_class ON sessions(class_id);
 CREATE INDEX IF NOT EXISTS idx_enroll_user ON enrollments(user_id);
 CREATE INDEX IF NOT EXISTS idx_ann_class ON announcements(class_id);
+
+-- Uploaded images and the signing secret live in Postgres so the API can run
+-- on a stateless host (Render) without losing data on restart.
+CREATE TABLE IF NOT EXISTS blobs(
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    data BYTEA NOT NULL,
+    PRIMARY KEY(kind, key)
+);
+
+CREATE TABLE IF NOT EXISTS settings(
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -240,6 +256,44 @@ def init_db() -> None:
                 ("AtClam Administrator", "admin", "admin@classroom.local",
                  hash_password("Admin123"), "", "", time.time()),
             )
+
+
+def save_blob(kind: str, key: str, data: bytes) -> None:
+    """Persist an uploaded image in Postgres (no local disk needed)."""
+    with _write_lock, closing(get_connection()) as con, con:
+        con.execute(
+            """INSERT INTO blobs(kind, key, data) VALUES(%s, %s, %s)
+               ON CONFLICT(kind, key) DO UPDATE SET data=excluded.data""",
+            (kind, str(key), psycopg.Binary(data)),
+        )
+
+
+def load_blob(kind: str, key: str) -> Optional[bytes]:
+    with closing(get_connection()) as con:
+        row = con.execute(
+            "SELECT data FROM blobs WHERE kind=%s AND key=%s", (kind, str(key))
+        ).fetchone()
+    return bytes(row["data"]) if row and row["data"] is not None else None
+
+
+def delete_blob(kind: str, key: str) -> None:
+    with _write_lock, closing(get_connection()) as con, con:
+        con.execute("DELETE FROM blobs WHERE kind=%s AND key=%s", (kind, str(key)))
+
+
+def get_setting(key: str) -> Optional[str]:
+    with closing(get_connection()) as con:
+        row = con.execute("SELECT value FROM settings WHERE key=%s", (key,)).fetchone()
+    return row["value"] if row else None
+
+
+def set_setting(key: str, value: str) -> None:
+    with _write_lock, closing(get_connection()) as con, con:
+        con.execute(
+            """INSERT INTO settings(key, value) VALUES(%s, %s)
+               ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+            (key, value),
+        )
 
 
 def user_public(row) -> dict:

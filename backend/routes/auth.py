@@ -10,10 +10,9 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
-import config as C
 from auth import (check_password, create_token, get_current_user, hash_password,
                   validate_email, validate_password)
-from db import get_connection, user_public
+from db import get_connection, load_blob, save_blob, user_public
 from face_utils import decode_image, process_photos, save_face
 from scanner import scanner
 
@@ -217,7 +216,9 @@ def upload_avatar(data: AvatarIn, user: dict = Depends(get_current_user)):
     side = min(h, w)
     x, y = (w - side) // 2, (h - side) // 2
     square = cv2.resize(img[y:y + side, x:x + side], (256, 256), interpolation=cv2.INTER_AREA)
-    cv2.imwrite(str(C.AVATARS / f"{user['id']}.jpg"), square)
+    ok, buf = cv2.imencode(".jpg", square)
+    if ok:
+        save_blob("avatar", str(user["id"]), buf.tobytes())
     return {"ok": True}
 
 
@@ -233,13 +234,13 @@ def _placeholder(kind):
             'fill="#a8e063" font-family="Arial, sans-serif">A</text></svg>')
 
 
-def _serve_image(folder, uid, kind):
-    from fastapi.responses import FileResponse, Response
+def _serve_image(blob_kind, uid, kind):
+    from fastapi.responses import Response
     if not re.fullmatch(r"[A-Za-z0-9_-]+", uid):
         raise HTTPException(status_code=400, detail="Invalid id.")
-    path = folder / f"{uid}.jpg"
-    if path.exists():
-        return FileResponse(path, media_type="image/jpeg")
+    data = load_blob(blob_kind, uid)
+    if data:
+        return Response(content=data, media_type="image/jpeg")
     return Response(_placeholder(kind), media_type="image/svg+xml")
 
 
@@ -248,9 +249,9 @@ router_files = APIRouter(tags=["files"])
 
 @router_files.get("/faces/{uid}.jpg")
 def face_image(uid: str):
-    return _serve_image(C.FACES, uid, "face")
+    return _serve_image("face", uid, "face")
 
 
 @router_files.get("/avatars/{uid}.jpg")
 def avatar_image(uid: str):
-    return _serve_image(C.AVATARS, uid, "avatar")
+    return _serve_image("avatar", uid, "avatar")

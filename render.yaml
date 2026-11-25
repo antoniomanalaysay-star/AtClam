@@ -1,0 +1,31 @@
+# Render Blueprint — deploys the AtClam FastAPI backend as a stateless web
+# service. The database is the existing Supabase Postgres instance, so no
+# Render database is created here.
+services:
+  - type: web
+    name: atclam-api
+    runtime: python
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DB_HOST
+        value: aws-0-ap-southeast-1.pooler.supabase.com
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        value: AtClam
+      - key: DB_USER
+        value: postgres.gcnwpahqyuekgmkkijrp
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSLMODE
+        value: require
+      - key: TOKEN_HOURS
+        value: "168"

@@ -11,7 +11,6 @@ from typing import Optional
 import bcrypt
 from fastapi import Depends, Header, HTTPException
 
-import config as C
 from db import get_connection, user_public
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -23,10 +22,15 @@ def _secret() -> bytes:
     env = os.getenv("JWT_SECRET")
     if env:
         return env.encode()
-    C.DATA.mkdir(parents=True, exist_ok=True)
-    if not C.SECRET_PATH.exists():
-        C.SECRET_PATH.write_text(os.urandom(32).hex())
-    return C.SECRET_PATH.read_text().strip().encode()
+    # Keep the signing secret in Postgres so tokens survive a Render restart
+    # and every instance uses the same key.
+    from db import get_setting, set_setting
+
+    secret = get_setting("jwt_secret")
+    if not secret:
+        secret = os.urandom(32).hex()
+        set_setting("jwt_secret", secret)
+    return secret.encode()
 
 
 # ---------------------------------------------------------------- passwords

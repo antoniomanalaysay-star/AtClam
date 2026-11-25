@@ -23,7 +23,8 @@ class ApiClient {
 
   static final ApiClient instance = ApiClient._();
 
-  static const Duration _timeout = Duration(seconds: 30);
+  // Render's free plan wakes a sleeping instance on the first request.
+  static const Duration _timeout = Duration(seconds: 60);
 
   String? token;
   void Function()? onUnauthorized;
