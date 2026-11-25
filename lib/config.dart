@@ -24,7 +24,9 @@ class AppConfig {
   }
 
   static String get apiBaseUrl {
-    final url = _saved ?? defaultUrl;
+    // A URL compiled into the deployed build always wins, so devices that
+    // previously saved a localhost / LAN value still use the public backend.
+    final url = _compiled.isNotEmpty ? _compiled : (_saved ?? defaultUrl);
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
