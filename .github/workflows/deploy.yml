@@ -21,13 +21,16 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Dart 3.14 (Flutter 3.50) rejects @JS annotations in camera_web 0.3.5.
+          # Pin to a stable release whose Dart SDK (3.11) accepts it.
+          flutter-version: '3.41.0'
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Build Flutter Web
-        run: flutter build web --release
+        run: flutter build web --release --no-wasm-dry-run
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
