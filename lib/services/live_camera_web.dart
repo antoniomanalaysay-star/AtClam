@@ -1,3 +1,4 @@
+import 'dart:ui_web' as ui_web;
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:js_util';
@@ -82,7 +83,7 @@ class LiveCameraImpl extends LiveCamera {
 
     _viewType = 'live-camera-$_cameraViewCounter';
     _cameraViewCounter++;
-    ui.platformViewRegistry
+    ui_web.platformViewRegistry
         .registerViewFactory(_viewType!, (int viewId) => video);
   }
 
