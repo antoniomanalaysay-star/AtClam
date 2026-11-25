@@ -42,3 +42,6 @@ jobs:
           preCommands: |
             npx wrangler pages project create atclam --production-branch main || true
           command: pages deploy build/web --project-name=atclam --commit-dirty=true
+
+dependency_overrides:
+  camera_web: 0.3.5+5
