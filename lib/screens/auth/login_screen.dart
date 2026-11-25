@@ -6,6 +6,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_style.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_widgets.dart';
+import '../../widgets/server_address_field.dart';
 import 'auth_hero.dart';
 import 'register_screen.dart';
 
@@ -115,6 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: () {}, // Placeholder — no action yet.
               ),
             ),
+            const ServerAddressField(),
             if (_error != null) ...[
               const SizedBox(height: 8),
               ErrorBanner(_error!),

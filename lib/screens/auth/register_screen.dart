@@ -9,6 +9,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_style.dart';
 import '../../utils/validators.dart';
 import '../../widgets/app_widgets.dart';
+import '../../widgets/server_address_field.dart';
 import 'auth_hero.dart';
 
 /// Old-style signup: choose Student or Instructor, then continue.
@@ -181,6 +182,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 18),
             if (_role == 'student') _photoSlots() else _instructorNote(),
+            const ServerAddressField(),
             if (_error != null) ...[
               const SizedBox(height: 16),
               ErrorBanner(_error!),
