@@ -30,7 +30,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter Web
-        run: flutter build web --release --no-wasm-dry-run --dart-define=API_BASE_URL=https://atclam-api.onrender.com
+        run: flutter build web --release --no-wasm-dry-run --dart-define=API_BASE_URL=https://atclam.onrender.com
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
